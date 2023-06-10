@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+use parking_lot::Mutex;
 use std::sync::Arc;
 
 use sui_types::base_types::TransactionDigest;
@@ -29,6 +30,9 @@ pub struct RocksDbStore {
     authority_store: Arc<AuthorityStore>,
     committee_store: Arc<CommitteeStore>,
     checkpoint_store: Arc<CheckpointStore>,
+    // in memory checkpoint watermark sequence numbers
+    highest_verified_checkpoint: Arc<Mutex<Option<u64>>>,
+    highest_synced_checkpoint: Arc<Mutex<Option<u64>>>,
 }
 
 impl RocksDbStore {
@@ -41,6 +45,8 @@ impl RocksDbStore {
             authority_store,
             committee_store,
             checkpoint_store,
+            highest_verified_checkpoint: Arc::new(Mutex::new(None)),
+            highest_synced_checkpoint: Arc::new(Mutex::new(None)),
         }
     }
 }

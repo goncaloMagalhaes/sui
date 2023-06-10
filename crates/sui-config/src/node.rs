@@ -13,10 +13,12 @@ use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::net::SocketAddr;
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use std::usize;
+use sui_archival::reader::ArchiveReaderConfig;
 use sui_keys::keypair_file::{read_authority_keypair_from_file, read_keypair_from_file};
 use sui_protocol_config::SupportedProtocolVersions;
 use sui_storage::object_store::ObjectStoreConfig;
@@ -131,7 +133,10 @@ pub struct NodeConfig {
     pub state_debug_dump_config: StateDebugDumpConfig,
 
     #[serde(default)]
-    pub state_archive_config: StateArchiveConfig,
+    pub state_archive_write_config: StateArchiveConfig,
+
+    #[serde(default)]
+    pub state_archive_read_config: Vec<StateArchiveConfig>,
 }
 
 fn default_authority_store_pruning_config() -> AuthorityStorePruningConfig {
@@ -245,6 +250,22 @@ impl NodeConfig {
 
     pub fn sui_address(&self) -> SuiAddress {
         (&self.account_key_pair.keypair().public()).into()
+    }
+
+    pub fn archive_reader_config(&self) -> Vec<ArchiveReaderConfig> {
+        self.state_archive_read_config
+            .iter()
+            .flat_map(|config| {
+                config
+                    .object_store_config
+                    .as_ref()
+                    .map(|remote_store_config| ArchiveReaderConfig {
+                        remote_store_config: remote_store_config.clone(),
+                        download_concurrency: NonZeroUsize::new(config.download_concurrency)
+                            .unwrap_or(NonZeroUsize::new(5).unwrap()),
+                    })
+            })
+            .collect()
     }
 }
 
@@ -535,6 +556,7 @@ pub struct DBCheckpointConfig {
 pub struct StateArchiveConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub object_store_config: Option<ObjectStoreConfig>,
+    pub download_concurrency: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq)]
