@@ -10,7 +10,7 @@ use tracing::{info, warn};
 
 /// The minimum and maximum protocol versions supported by this build.
 const MIN_PROTOCOL_VERSION: u64 = 1;
-const MAX_PROTOCOL_VERSION: u64 = 15;
+const MAX_PROTOCOL_VERSION: u64 = 16;
 
 // Record history of protocol version allocations here:
 //
@@ -47,6 +47,11 @@ const MAX_PROTOCOL_VERSION: u64 = 15;
 //             decides whether rounding is applied or not.
 // Version 15: Add reordering of user transactions by gas price after consensus.
 //             Add `sui::table_vec::drop` to the framework via a system package upgrade.
+// Version 16: Gas minimum charges moved to be a multiplier over the reference gas price. In this
+//             protocol version the multiplier is the same as the lowest bucket of computation
+//             such that the minimum transaction cost is the same as the minimum computation
+//             bucket.
+//             Add a feature flag to indicate the changes semantics of `base_tx_cost_fixed`
 
 #[derive(Copy, Clone, Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProtocolVersion(u64);
@@ -212,10 +217,12 @@ struct FeatureFlags {
     // Enable zklogin auth
     #[serde(skip_serializing_if = "is_false")]
     zklogin_auth: bool,
-
     // How we order transactions coming out of consensus before sending to execution.
     #[serde(skip_serializing_if = "ConsensusTransactionOrdering::is_none")]
     consensus_transaction_ordering: ConsensusTransactionOrdering,
+    // If true minimum txn charge is a multiplier of the gas price
+    #[serde(skip_serializing_if = "is_false")]
+    txn_base_cost_as_multiplier: bool,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -427,7 +434,6 @@ pub struct ProtocolConfig {
     object_runtime_max_num_store_entries_system_tx: Option<u64>,
 
     // === Execution gas costs ====
-    // note: Option<per-instruction and native function gas costs live in the sui-cost-tables crate
     /// Base cost for any Sui transaction
     base_tx_cost_fixed: Option<u64>,
 
@@ -770,6 +776,10 @@ impl ProtocolConfig {
 
     pub fn consensus_transaction_ordering(&self) -> ConsensusTransactionOrdering {
         self.feature_flags.consensus_transaction_ordering
+    }
+
+    pub fn txn_base_cost_as_multiplier(&self) -> bool {
+        self.feature_flags.txn_base_cost_as_multiplier
     }
 }
 
@@ -1230,6 +1240,13 @@ impl ProtocolConfig {
                 let mut cfg = Self::get_for_version_impl(version - 1, chain);
                 cfg.feature_flags.consensus_transaction_ordering =
                     ConsensusTransactionOrdering::ByGasPrice;
+                cfg
+            }
+            16 => {
+                let mut cfg = Self::get_for_version_impl(version - 1, chain);
+                cfg.feature_flags.txn_base_cost_as_multiplier = true;
+                // this is a multiplier of the gas price
+                cfg.base_tx_cost_fixed = Some(1_000);
                 cfg
             }
             // Use this template when making changes:
