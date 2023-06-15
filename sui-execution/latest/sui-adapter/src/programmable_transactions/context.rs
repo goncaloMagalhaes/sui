@@ -346,11 +346,11 @@ impl<'vm, 'state, 'a> ExecutionContext<'vm, 'state, 'a> {
         {
             return Err(CommandArgumentError::InvalidGasCoinUsage);
         }
-        // Immutable objects and shared objects cannot be taken by value
+        // Immutable objects cannot be taken by value
         if matches!(
             input_metadata_opt,
             Some(InputObjectMetadata {
-                owner: Owner::Immutable | Owner::Shared { .. },
+                owner: Owner::Immutable,
                 ..
             })
         ) {

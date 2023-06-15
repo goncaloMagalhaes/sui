@@ -234,7 +234,7 @@ pub enum CommandArgumentError {
         Taken values cannot be used again."
     )]
     InvalidValueUsage,
-    #[error("Immutable and shared objects cannot be passed by-value.")]
+    #[error("Immutable objects cannot be passed by-value.")]
     InvalidObjectByValue,
     #[error("Immutable objects cannot be passed by mutable reference, &mut.")]
     InvalidObjectByMutRef,

@@ -1,4 +1,4 @@
-processed 7 tasks
+processed 9 tasks
 
 task 1 'publish'. lines 8-28:
 created: object(1,0)
@@ -21,9 +21,21 @@ Version: 4
 Contents: t2::o2::Obj2 {id: sui::object::UID {id: sui::object::ID {bytes: fake(3,0)}}}
 
 task 5 'run'. lines 45-45:
-Error: Transaction Effects Status: Invalid command argument at 0. Immutable and shared objects cannot be passed by-value.
-Cannot return execution error with shared objects. Debug of error: CommandArgumentError { arg_idx: 0, kind: InvalidObjectByValue } at command Some(0)
+mutated: object(0,0)
+deleted: object(3,0)
+gas summary: computation_cost: 1000000, storage_cost: 988000,  storage_rebate: 2204532, non_refundable_storage_fee: 22268
 
 task 6 'run'. lines 47-47:
-Error: Transaction Effects Status: Invalid command argument at 0. Immutable and shared objects cannot be passed by-value.
-Cannot return execution error with shared objects. Debug of error: CommandArgumentError { arg_idx: 0, kind: InvalidObjectByValue } at command Some(0)
+created: object(6,0)
+mutated: object(0,0)
+gas summary: computation_cost: 1000000, storage_cost: 2226800,  storage_rebate: 978120, non_refundable_storage_fee: 9880
+
+task 7 'view-object'. lines 49-49:
+Owner: Shared
+Version: 6
+Contents: t2::o2::Obj2 {id: sui::object::UID {id: sui::object::ID {bytes: fake(6,0)}}}
+
+task 8 'run'. lines 51-51:
+mutated: object(0,0)
+deleted: object(6,0)
+gas summary: computation_cost: 1000000, storage_cost: 988000,  storage_rebate: 2204532, non_refundable_storage_fee: 22268

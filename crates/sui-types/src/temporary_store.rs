@@ -716,7 +716,7 @@ impl<'backing> TemporaryStore<'backing> {
                             objs_to_authenticate.push(*id);
                         }
                         Owner::AddressOwner(_) | Owner::Shared { .. } => {
-                            unreachable!("Should already be in authenticated_objs")
+                            objs_to_authenticate.push(*id);
                         }
                         Owner::Immutable => {
                             assert!(is_epoch_change, "Immutable objects cannot be written, except for Sui Framework/Move stdlib upgrades at epoch change boundaries");

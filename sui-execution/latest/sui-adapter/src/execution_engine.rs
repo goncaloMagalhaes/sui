@@ -114,7 +114,7 @@ pub fn execute_transaction_to_effects<Mode: ExecutionMode>(
 
     let is_epoch_change = matches!(transaction_kind, TransactionKind::ChangeEpoch(_));
 
-    // todo: if deny_cert I think the intention here will be to call create_effects_without_execution instead of execute_transaction_to_effects
+    // todo: if deny_cert I think the intention here is to call create_effects_without_execution instead of execute_transaction_to_effects
     let deny_cert = is_certificate_denied(&transaction_digest, certificate_deny_set);
     let (gas_cost_summary, execution_result) = execute_transaction::<Mode>(
         &mut temporary_store,
