@@ -534,6 +534,29 @@ impl AuthorityStore {
         Ok(result)
     }
 
+    pub fn check_inbox_references(
+        &self,
+        inbox_references: &[ObjectRef],
+        _protocol_config: &ProtocolConfig,
+    ) -> Result<(), SuiError> {
+        // TODO(tzakian): bound the number of inbox references.
+        // Check the following for every inbox reference:
+        // 1. Object reference is the most recent version; or
+        // 2. Is an entry in the Inbox Marker table
+        // 3. Otherwise, return an error.
+        for (object_id, version, _) in inbox_references {
+            match self.get_object_by_key(object_id, *version)? {
+                // 1. Object exists and is most recent version
+                Some(_) => (),
+                // TODO(tzakian): Fill this in.
+                // 2. Object does not exist, or is not most recent version. So check if entry is in
+                //    Inbox Marker table.
+                None => std::todo!("Check if entry is in Inbox Marker table"),
+            }
+        }
+        Ok(())
+    }
+
     pub fn check_input_objects(
         &self,
         objects: &[InputObjectKind],
@@ -622,6 +645,8 @@ impl AuthorityStore {
         let (keys_with_version, keys_without_version): (Vec<_>, Vec<_>) =
             keys.enumerate().partition(|(_, key)| key.1.is_some());
 
+        // TODO(tzakian): Have this lookup and determine if the object exists in the Inbox Marker
+        // table as well. If so we will then mark it as "available" to let it progress through.
         let versioned_results = keys_with_version.iter().map(|(idx, _)| *idx).zip(
             self.perpetual_tables
                 .objects

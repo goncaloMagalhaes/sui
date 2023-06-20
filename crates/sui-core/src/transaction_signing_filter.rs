@@ -3,6 +3,7 @@
 
 use sui_config::transaction_deny_config::TransactionDenyConfig;
 use sui_types::{
+    base_types::ObjectRef,
     error::{SuiError, SuiResult, UserInputError},
     storage::BackingPackageStore,
     transaction::{Command, InputObjectKind, TransactionData, TransactionDataAPI},
@@ -29,6 +30,7 @@ macro_rules! deny_if_true {
 pub fn check_transaction_for_signing(
     tx_data: &TransactionData,
     input_objects: &[InputObjectKind],
+    inbox_references: &[ObjectRef],
     filter_config: &TransactionDenyConfig,
     package_store: &impl BackingPackageStore,
 ) -> SuiResult {
@@ -40,7 +42,17 @@ pub fn check_transaction_for_signing(
 
     check_package_dependencies(filter_config, tx_data, package_store)?;
 
+    check_inbox_references(filter_config, inbox_references)?;
+
     Ok(())
+}
+
+fn check_inbox_references(
+    _filter_config: &TransactionDenyConfig,
+    _inbox_references: &[ObjectRef],
+) -> SuiResult {
+    // TODO(tzakian): fill this in!
+    std::todo!()
 }
 
 fn check_disabled_features(

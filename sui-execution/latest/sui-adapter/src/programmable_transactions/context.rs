@@ -1183,6 +1183,9 @@ fn load_object_arg<'vm, 'state>(
             /* imm override */ !mutable,
             id,
         ),
+        ObjectArg::InboxRef(_) => {
+            invariant_violation!("InboxRef args should not flow to load_object_arg")
+        }
     }
 }
 

@@ -859,6 +859,9 @@ impl From<CallArg> for BenchMoveCallArg {
                     initial_shared_version,
                     mutable,
                 } => BenchMoveCallArg::Shared((id, initial_shared_version, mutable)),
+                ObjectArg::InboxRef(_) => {
+                    unimplemented!("InboxRef is not supported for benchmarks")
+                }
             },
         }
     }

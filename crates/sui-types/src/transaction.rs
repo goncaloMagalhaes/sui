@@ -96,6 +96,8 @@ pub enum ObjectArg {
         initial_shared_version: SequenceNumber,
         mutable: bool,
     },
+    // A Move object that can be received from the inbox in this transaction.
+    InboxRef(ObjectRef),
 }
 
 fn type_tag_validity_check(
@@ -239,6 +241,19 @@ impl CallArg {
                     mutable,
                 }]
             }
+            // Inbox references are not part of the input objects.
+            CallArg::Object(ObjectArg::InboxRef(_)) => vec![],
+        }
+    }
+
+    fn inbox_references(&self) -> Vec<ObjectRef> {
+        match self {
+            CallArg::Pure(_) => vec![],
+            CallArg::Object(o) => match o {
+                ObjectArg::ImmOrOwnedObject(_) => vec![],
+                ObjectArg::SharedObject { .. } => vec![],
+                ObjectArg::InboxRef(obj_ref) => vec![*obj_ref],
+            },
         }
     }
 
@@ -323,7 +338,9 @@ impl ObjectArg {
 
     pub fn id(&self) -> ObjectID {
         match self {
-            ObjectArg::ImmOrOwnedObject((id, _, _)) | ObjectArg::SharedObject { id, .. } => *id,
+            ObjectArg::InboxRef((id, _, _))
+            | ObjectArg::ImmOrOwnedObject((id, _, _))
+            | ObjectArg::SharedObject { id, .. } => *id,
         }
     }
 }
@@ -635,6 +652,22 @@ impl ProgrammableTransaction {
             .collect())
     }
 
+    fn inbox_references(&self) -> UserInputResult<Vec<ObjectRef>> {
+        let ProgrammableTransaction { inputs, .. } = self;
+        let inbox_references = inputs
+            .iter()
+            .flat_map(|arg| arg.inbox_references())
+            .collect::<Vec<_>>();
+
+        // all inbox references, not just mutable, must be unique
+        let mut used = HashSet::new();
+        if !inbox_references.iter().all(|o| used.insert(o.0)) {
+            // TODO(tzakian): Actual error type for duplicate inbox references
+            return Err(UserInputError::DuplicateObjectRefInput);
+        }
+        Ok(inbox_references)
+    }
+
     fn validity_check(&self, config: &ProtocolConfig) -> UserInputResult {
         let ProgrammableTransaction { inputs, commands } = self;
         fp_ensure!(
@@ -657,7 +690,9 @@ impl ProgrammableTransaction {
         self.inputs
             .iter()
             .filter_map(|arg| match arg {
-                CallArg::Pure(_) | CallArg::Object(ObjectArg::ImmOrOwnedObject(_)) => None,
+                CallArg::Pure(_)
+                | CallArg::Object(ObjectArg::InboxRef(_))
+                | CallArg::Object(ObjectArg::ImmOrOwnedObject(_)) => None,
                 CallArg::Object(ObjectArg::SharedObject {
                     id,
                     initial_shared_version,
@@ -866,6 +901,15 @@ impl TransactionKind {
             Self::ProgrammableTransaction(pt) => pt.move_calls(),
             _ => vec![],
         }
+    }
+
+    fn inbox_references(&self) -> UserInputResult<Vec<ObjectRef>> {
+        Ok(match &self {
+            TransactionKind::ChangeEpoch(_)
+            | TransactionKind::Genesis(_)
+            | TransactionKind::ConsensusCommitPrologue(_) => vec![],
+            TransactionKind::ProgrammableTransaction(pt) => pt.inbox_references()?,
+        })
     }
 
     /// Return the metadata of each of the input objects for the transaction.
@@ -1437,6 +1481,8 @@ pub trait TransactionDataAPI {
 
     fn input_objects(&self) -> UserInputResult<Vec<InputObjectKind>>;
 
+    fn inbox_references(&self) -> UserInputResult<Vec<ObjectRef>>;
+
     fn validity_check(&self, config: &ProtocolConfig) -> UserInputResult;
 
     fn validity_check_no_gas_check(&self, config: &ProtocolConfig) -> UserInputResult;
@@ -1534,6 +1580,10 @@ impl TransactionDataAPI for TransactionDataV1 {
             );
         }
         Ok(inputs)
+    }
+
+    fn inbox_references(&self) -> UserInputResult<Vec<ObjectRef>> {
+        self.kind.inbox_references()
     }
 
     fn validity_check(&self, config: &ProtocolConfig) -> UserInputResult {

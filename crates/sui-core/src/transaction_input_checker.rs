@@ -68,9 +68,11 @@ pub async fn check_transaction_input(
     transaction.check_version_supported(epoch_store.protocol_config())?;
     transaction.validity_check(epoch_store.protocol_config())?;
     let input_objects = transaction.input_objects()?;
+    let inbox_references = transaction.inbox_references()?;
     transaction_signing_filter::check_transaction_for_signing(
         transaction,
         &input_objects,
+        &inbox_references,
         transaction_deny_config,
         store,
     )?;
@@ -81,6 +83,7 @@ pub async fn check_transaction_input(
     let objects = store.check_input_objects(&input_objects, epoch_store.protocol_config())?;
     let gas_status = get_gas_status(&objects, transaction.gas(), epoch_store, transaction).await?;
     let input_objects = check_objects(transaction, input_objects, objects)?;
+    store.check_inbox_references(&inbox_references, epoch_store.protocol_config())?;
     Ok((gas_status, input_objects))
 }
 

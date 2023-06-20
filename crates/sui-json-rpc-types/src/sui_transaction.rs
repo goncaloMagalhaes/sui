@@ -1530,6 +1530,9 @@ impl SuiCallArg {
                 initial_shared_version,
                 mutable,
             }),
+            CallArg::Object(ObjectArg::InboxRef(obj_ref)) => {
+                SuiCallArg::Object(SuiObjectArg::InboxRef(SuiObjectRef::from(obj_ref)))
+            }
         })
     }
 
@@ -1594,6 +1597,9 @@ pub enum SuiObjectArg {
         initial_shared_version: SequenceNumber,
         mutable: bool,
     },
+    // A reference to a Move object that's in the inbox.
+    #[serde(rename_all = "camelCase")]
+    InboxRef(SuiObjectRef),
 }
 
 #[serde_as]
