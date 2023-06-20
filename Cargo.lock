@@ -10729,6 +10729,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
+ "clap 3.2.23",
  "expect-test",
  "move-package",
  "reqwest",
@@ -10741,6 +10742,7 @@ dependencies = [
  "sui-source-validation",
  "test-utils",
  "tokio",
+ "toml 0.7.4",
  "workspace-hack",
 ]
 
