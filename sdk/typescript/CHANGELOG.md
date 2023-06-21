@@ -1,5 +1,14 @@
 # @mysten/sui.js
 
+## 0.36.1
+
+### Patch Changes
+
+- 36f2edff31: Use splitGenericParamaters util from bcs
+- 2f37537d5c: Update `SuiEventFilter` structure for `TimeRange` query.
+- Updated dependencies [36f2edff31]
+  - @mysten/bcs@0.7.3
+
 ## 0.36.0
 
 ### Minor Changes
