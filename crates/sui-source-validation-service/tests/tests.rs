@@ -19,8 +19,9 @@ async fn test_api_route() -> anyhow::Result<()> {
     let mut cluster = TestClusterBuilder::new().build().await;
     let context = &mut cluster.wallet;
     let config = Config { packages: vec![] };
+    let tmp_dir = tempfile::tempdir()?;
 
-    initialize(context, &config).await?;
+    initialize(context, &config, tmp_dir.path()).await?;
     tokio::spawn(serve().expect("Cannot start service."));
 
     let client = Client::new();

@@ -6,3 +6,9 @@ paths = [
     "crates/sui-framework/packages/sui-framework",
     "crates/sui-framework/packages/sui-system",
 ]
+
+[[packages]]
+repository = "https://github.com/sea-protocol/seaprotocol"
+paths = [
+    "src",
+]

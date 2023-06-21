@@ -4,10 +4,13 @@
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use actix_web::{dev::Server, web, App, HttpRequest, HttpServer, Responder};
+use anyhow::{anyhow, bail};
 use serde::Deserialize;
+use url::Url;
 
 use move_package::BuildConfig as MoveBuildConfig;
 use sui_move::build::resolve_lock_file_path;
@@ -20,7 +23,7 @@ pub struct Config {
     pub packages: Vec<Packages>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct Packages {
     repository: String,
     paths: Vec<String>,
@@ -57,16 +60,78 @@ pub fn parse_config(config_path: impl AsRef<Path>) -> anyhow::Result<Config> {
     toml::from_str(&contents).map_err(anyhow::Error::from)
 }
 
-pub async fn clone_repositories(config: &Config) -> anyhow::Result<()> {
+pub async fn clone_packages(p: Packages, dir: PathBuf) -> anyhow::Result<()> {
+    let repo_url = Url::parse(&p.repository)?;
+    let Some(components) = repo_url.path_segments().map(|c| c.collect::<Vec<_>>()) else {
+	bail!("Could not discover repository path in url {}", &p.repository)
+    };
+    let Some(repo_name) = components.last() else {
+	bail!("Could not discover repository name in url {}", &p.repository)
+    };
+    let dest = dir
+        .join(repo_name)
+        .into_os_string()
+        .into_string()
+        .map_err(|_| {
+            anyhow!(
+                "Could not create path to clone repsository {}",
+                &p.repository
+            )
+        })?;
+
+    // Clone the empty repository.
+    Command::new("git")
+        .args([
+            "clone",
+            "-n",
+            "--depth=1",
+            "--filter=tree:0",
+            &p.repository,
+            &dest,
+        ])
+        .output()
+        .map_err(|_| anyhow!("Could not clone repository {}", &p.repository))?;
+
+    // Do a sparse check out for the package set.
+    let mut args: Vec<String> = vec!["-C", &dest, "sparse-checkout", "set", "--no-cone"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    args.extend_from_slice(&p.paths);
+    Command::new("git")
+        .args(args)
+        .output()
+        .map_err(|_| anyhow!("could not sparse-checkout paths for {}", &p.repository))?;
+
+    // Checkout the default branch.
+    Command::new("git")
+        .args(["-C", &dest, "checkout"])
+        .output()
+        .map_err(|_| anyhow!("could not checkout {}", &p.repository))?;
+    Ok(())
+}
+
+pub async fn clone_repositories(config: &Config, dir: &Path) -> anyhow::Result<()> {
+    let mut tasks = vec![];
     for p in &config.packages {
-        let _ = p.repository;
-        let _ = p.paths;
+        let new_p = p.clone();
+        let new_dir = PathBuf::from(dir);
+        let t = tokio::spawn(async move { clone_packages(new_p, new_dir).await });
+        tasks.push(t);
+    }
+
+    for t in tasks {
+        t.await.unwrap()?;
     }
     Ok(())
 }
 
-pub async fn initialize(context: &WalletContext, config: &Config) -> anyhow::Result<()> {
-    clone_repositories(config).await?;
+pub async fn initialize(
+    context: &WalletContext,
+    config: &Config,
+    dir: &Path,
+) -> anyhow::Result<()> {
+    clone_repositories(config, dir).await?;
     verify_packages(context, vec![]).await?;
     Ok(())
 }
