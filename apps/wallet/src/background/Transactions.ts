@@ -18,6 +18,7 @@ import type { SuiSignTransactionSerialized } from '_payloads/transactions/Execut
 import type { TransactionRequestResponse } from '_payloads/transactions/ui/TransactionRequestResponse';
 import type { ContentScriptConnection } from '_src/background/connections/ContentScriptConnection';
 
+const STALE_TRANSACTION_MILLISECONDS = 1000 * 60 * 60 * 6; // 6 hours
 const TX_STORE_KEY = 'transactions';
 
 function openTxWindow(requestID: string) {
@@ -99,6 +100,37 @@ class Transactions {
 		this._txResponseMessages.next(msg);
 	}
 
+	public async clearStaleTransactions() {
+		console.log('clearStaleTransactions');
+		const now = Date.now();
+		const allTransactions = await this.getTransactionRequests();
+		let hasChanges = false;
+		Object.keys(allTransactions).forEach((aTransactionID) => {
+			const aTransaction = allTransactions[aTransactionID];
+			const createdDate = new Date(aTransaction.createdDate);
+			console.log({
+				now,
+				time: createdDate.getTime(),
+				STALE_TRANSACTION_MILLISECONDS,
+				result:
+					aTransaction.approved || now - createdDate.getTime() > STALE_TRANSACTION_MILLISECONDS,
+				approved: aTransaction.approved,
+			});
+			if (
+				aTransaction.approved !== null ||
+				now - createdDate.getTime() >= STALE_TRANSACTION_MILLISECONDS
+			) {
+				delete allTransactions[aTransactionID];
+				hasChanges = true;
+				console.log('deleted transaction', aTransactionID);
+			}
+		});
+		if (hasChanges) {
+			console.log('has changes store allTransactions', allTransactions);
+			await this.saveTransactionRequests(allTransactions);
+		}
+	}
+
 	private createTransactionRequest(
 		tx: ApprovalRequest['tx'],
 		origin: string,
@@ -146,6 +178,8 @@ class Transactions {
 			race(popUpClose, txResponseMessage).pipe(
 				take(1),
 				map(async (response) => {
+					// TODO: uncomment this
+					// await this.removeTransactionRequest(txRequest.id);
 					if (response) {
 						const { approved, txResult, txSigned, txResultError } = response;
 						if (approved) {
@@ -153,11 +187,9 @@ class Transactions {
 							txRequest.txResult = txResult;
 							txRequest.txResultError = txResultError;
 							txRequest.txSigned = txSigned;
-							await this.storeTransactionRequest(txRequest);
 							return txRequest;
 						}
 					}
-					await this.removeTransactionRequest(txRequest.id);
 					throw new Error('Rejected from user');
 				}),
 			),

@@ -4,7 +4,7 @@
 import { lte, coerce } from 'semver';
 import Browser from 'webextension-polyfill';
 
-import { LOCK_ALARM_NAME } from './Alarms';
+import Alarms, { CLEAN_UP_ALARM_NAME, LOCK_ALARM_NAME } from './Alarms';
 import NetworkEnv from './NetworkEnv';
 import Permissions from './Permissions';
 import { Connections } from './connections';
@@ -14,12 +14,15 @@ import { isSessionStorageSupported } from './storage-utils';
 import { openInNewTab } from '_shared/utils';
 import { MSG_CONNECT } from '_src/content-script/keep-bg-alive';
 import { setAttributes } from '_src/shared/experimentation/features';
+import Transactions from './Transactions';
 
 Browser.runtime.onInstalled.addListener(async ({ reason, previousVersion }) => {
 	// Skip automatically opening the onboarding in end-to-end tests.
 	if (navigator.userAgent === 'Playwright') {
 		return;
 	}
+
+	Alarms.setCleanUpAlarmIfNotSet();
 
 	// TODO: Our versions don't use semver, and instead are date-based. Instead of using the semver
 	// library, we can use some combination of parsing into a date + inspecting patch.
@@ -87,6 +90,8 @@ Keyring.on('accountsChanged', async (accounts) => {
 Browser.alarms.onAlarm.addListener((alarm) => {
 	if (alarm.name === LOCK_ALARM_NAME) {
 		Keyring.reviveDone.finally(() => Keyring.lock());
+	} else if (alarm.name === CLEAN_UP_ALARM_NAME) {
+		Transactions.clearStaleTransactions();
 	}
 });
 

@@ -10,6 +10,7 @@ import {
 } from '_src/shared/constants';
 
 export const LOCK_ALARM_NAME = 'lock-keyring-alarm';
+export const CLEAN_UP_ALARM_NAME = 'clean-up-storage-alarm';
 
 class Alarms {
 	public async setLockAlarm() {
@@ -21,6 +22,13 @@ class Alarms {
 
 	public clearLockAlarm() {
 		return Browser.alarms.clear(LOCK_ALARM_NAME);
+	}
+
+	public async setCleanUpAlarmIfNotSet() {
+		const cleanUpAlarm = await Browser.alarms.get(CLEAN_UP_ALARM_NAME);
+		if (!cleanUpAlarm) {
+			await Browser.alarms.create(CLEAN_UP_ALARM_NAME, { periodInMinutes: 1 }); // TODO: change to 60 * 6  //  every 6 hours
+		}
 	}
 }
 
